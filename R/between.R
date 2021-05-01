@@ -24,11 +24,17 @@ between = function(x, lower, upper, incbounds=TRUE, NAbounds=TRUE, check=FALSE) 
     # lower/upper should be more tightly linked than x/lower, so error
     #   if the former don't match but only inform if they latter don't
     if (tzs[2L]!=tzs[3L]) {
-      stop("'between' lower= and upper= are both POSIXct but have different tzone attributes: ", brackify(tzs[2:3],quote=TRUE), ". Please align their time zones.")
+      stop(domain=NA, gettextf(
+        "'between' lower= and upper= are both POSIXct but have different tzone attributes: %s. Please align their time zones.", 
+        brackify(tzs[2:3], quote = TRUE), domain="R-data.table"
+      ))
       # otherwise the check in between.c that lower<=upper can (correctly) fail for this reason
     }
     if (tzs[1L]!=tzs[2L]) {
-      message("'between' arguments are all POSIXct but have mismatched tzone attributes: ", brackify(tzs,quote=TRUE),". The UTC times will be compared.")
+      message(domain=NA, gettextf(
+        "'between' arguments are all POSIXct but have mismatched tzone attributes: %s. The UTC times will be compared.",
+        brackify(tzs, quote = TRUE), domain="R-data.table"
+      ))
       # the underlying numeric is always UTC anyway in POSIXct so no coerce is needed; just compare as-is. As done by CoSMoS::example(analyzeTS), #3581
     }
   }
@@ -60,12 +66,14 @@ between = function(x, lower, upper, incbounds=TRUE, NAbounds=TRUE, check=FALSE) 
     y = eval.parent(ysub)
   }
   if ((l <- length(y)) != 2L) {
-    stop("RHS has length() ", l, "; expecting length 2. ",
-         if (ysub %iscall% 'c')
-           sprintf("Perhaps you meant %s? ",
-                   capture.output(print(`[[<-`(ysub, 1L, quote(list))))),
-         "The first element should be the lower bound(s); ",
-         "the second element should be the upper bound(s).")
+    if (ysub %iscall% 'c')
+      hint = sprintf("Perhaps you meant %s? ", capture.output(print(`[[<-`(ysub, 1L, quote(list)))))
+    else
+      hint = ""
+    stop(domain=NA, gettextf(
+      "RHS has length() %s; expecting length 2. %sThe first element should be the lower bound(s); the second element should be the upper bound(s).",
+      l, hint, domain="R-data.table"
+    ))
   }
   between(x, y[[1L]], y[[2L]], incbounds=TRUE)
 }

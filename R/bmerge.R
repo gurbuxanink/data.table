@@ -43,11 +43,14 @@ bmerge = function(i, x, icols, xcols, roll, rollends, nomatch, mult, ops, verbos
     xc = xcols[a]
     xclass = getClass(x[[xc]])
     iclass = getClass(i[[ic]])
-    if (!xclass %chin% supported) stop("x.", names(x)[xc]," is type ", xclass, " which is not supported by data.table join")
-    if (!iclass %chin% supported) stop("i.", names(i)[ic]," is type ", iclass, " which is not supported by data.table join")
+    if (!xclass %chin% supported) stop(domain=NA, gettextf("%s.%s is type %s which is not supported by data.table join", "x", names(x)[xc], xclass, domain="R-data.table"))
+    if (!iclass %chin% supported) stop(domain=NA, gettextf("%s.%s is type %s which is not supported by data.table join", "i", names(i)[ic], iclass, domain="R-data.table"))
     if (xclass=="factor" || iclass=="factor") {
       if (roll!=0.0 && a==length(icols))
-        stop("Attempting roll join on factor column when joining x.",names(x)[xc]," to i.",names(i)[ic],". Only integer, double or character columns may be roll joined.")
+        stop(domain=NA, gettextf(
+          "Attempting roll join on factor column when joining x.%s to i.%s. Only integer, double or character columns may be roll joined.",
+          names(x)[xc], names(i)[ic], domain="R-data.table"
+        ))
       if (xclass=="factor" && iclass=="factor") {
         if (verbose) cat("Matching i.",names(i)[ic]," factor levels to x.",names(x)[xc]," factor levels.\n",sep="")
         set(i, j=ic, value=chmatch(levels(i[[ic]]), levels(x[[xc]]), nomatch=0L)[i[[ic]]])  # nomatch=0L otherwise a level that is missing would match to NA values
@@ -66,7 +69,10 @@ bmerge = function(i, x, icols, xcols, roll, rollends, nomatch, mult, ops, verbos
           next
         }
       }
-      stop("Incompatible join types: x.", names(x)[xc], " (",xclass,") and i.", names(i)[ic], " (",iclass,"). Factor columns must join to factor or character columns.")
+      stop(domain=NA, gettextf(
+        "Incompatible join types: x.%s (%s) and i.%s (%s). Factor columns must join to factor or character columns.",
+        names(x)[xc], xclass, names(i)[ic], iclass, domain="R-data.table"
+      ))
     }
     if (xclass == iclass) {
       if (verbose) cat("i.",names(i)[ic]," has same type (",xclass,") as x.",names(x)[xc],". No coercion needed.\n", sep="")
@@ -85,7 +91,10 @@ bmerge = function(i, x, icols, xcols, roll, rollends, nomatch, mult, ops, verbos
         set(x, j=xc, value=match.fun(paste0("as.", iclass))(x[[xc]]))
         next
       }
-      stop("Incompatible join types: x.", names(x)[xc], " (",xclass,") and i.", names(i)[ic], " (",iclass,")")
+      stop(domain=NA, gettextf(
+        "Incompatible join types: x.%s (%s) and i.%s (%s)",
+        names(x)[xc], xclass, names(i)[ic], iclass, domain="R-data.table"
+      ))
     }
     if (xclass=="integer64" || iclass=="integer64") {
       nm = paste0(c("i.","x."), c(names(i)[ic], names(x)[xc]))
@@ -93,7 +102,11 @@ bmerge = function(i, x, icols, xcols, roll, rollends, nomatch, mult, ops, verbos
       if (wclass=="integer" || (wclass=="double" && !isReallyReal(w[[wc]]))) {
         if (verbose) cat("Coercing ",wclass," column ", nm[1L], if(wclass=="double")" (which contains no fractions)"," to type integer64 to match type of ", nm[2L],".\n",sep="")
         set(w, j=wc, value=bit64::as.integer64(w[[wc]]))
-      } else stop("Incompatible join types: ", nm[2L], " is type integer64 but ", nm[1L], " is type double and contains fractions")
+      } else stop(domain=NA, gettextf(
+        "Incompatible join types: %s is type integer64 but %s is type double and contains fractions",
+        nm[2L], nm[1L], domain="R-data.table"
+      ))
+
     } else {
       # just integer and double left
       if (iclass=="double") {
