@@ -16,6 +16,6 @@ messagef = function(fmt, ..., appendLF=TRUE, domain="R-data.table") {
   message(gettextf(fmt, ..., domain=domain), domain=NA, appendLF=appendLF)
 }
 
-packageStartupMessagef = function(fmt, ..., appendLF=TRUE, domain="R-data.table") {
+packageStartupMessagef = function(fmt, ..., appendLF=TRUE, domain=NULL) {
   packageStartupMessage(gettextf(fmt, ..., domain=domain), domain=NA, appendLF=appendLF)
 }
