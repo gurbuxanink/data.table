@@ -1852,7 +1852,7 @@ replace_dot_alias = function(e) {
     g = lapply(grpcols, function(i) groups[[i]][gi])
 
     # returns all rows instead of one per group
-    nrow_funs = c("gshift")
+    nrow_funs = c("gshift", "gcumsum")
     .is_nrows = function(q) {
       if (!is.call(q)) return(FALSE)
       if (q[[1L]] == "list") {
@@ -2992,7 +2992,8 @@ rleidv = function(x, cols=seq_along(x), prefix=NULL) {
 #     (2) edit .gforce_ok (defined within `[`) to catch which j will apply the new function
 #     (3) define the gfun = function() R wrapper
 gfuns = c("[", "[[", "head", "tail", "first", "last", "sum", "mean", "prod",
-          "median", "min", "max", "var", "sd", ".N", "shift", "weighted.mean") # added .N for #334
+          "median", "min", "max", "var", "sd", ".N", "shift", "weighted.mean",
+          "cumsum") # added .N for #334
 `g[` = `g[[` = function(x, n) .Call(Cgnthvalue, x, as.integer(n)) # n is of length=1 here.
 ghead = function(x, n) .Call(Cghead, x, as.integer(n)) # n is not used at the moment
 gtail = function(x, n) .Call(Cgtail, x, as.integer(n)) # n is not used at the moment
@@ -3022,6 +3023,7 @@ gshift = function(x, n=1L, fill=NA, type=c("lag", "lead", "shift", "cyclic")) {
   stopifnot(is.numeric(n))
   .Call(Cgshift, x, as.integer(n), fill, type)
 }
+gcumsum = function(x, na.rm=FALSE) .Call(Cgcumsum, x, na.rm)
 gforce = function(env, jsub, o, f, l, rows) .Call(Cgforce, env, jsub, o, f, l, rows)
 
 .prepareFastSubset = function(isub, x, enclos, notjoin, verbose = FALSE){

@@ -1271,3 +1271,57 @@ SEXP gshift(SEXP x, SEXP nArg, SEXP fillArg, SEXP typeArg) {
   return(ans);
 }
 
+
+SEXP gcumsum(SEXP x, SEXP narmArg) {
+  if (!IS_TRUE_OR_FALSE(narmArg))
+    error(_("%s must be TRUE or FALSE"), "na.rm");
+  const bool narm=LOGICAL(narmArg)[0];
+  if (inherits(x, "factor"))
+    error(_("'%s' not meaningful for factors."), "cumsum");
+  const bool nosubset = irowslen == -1;
+  const bool issorted = !isunsorted;
+  const int n = nosubset ? length(x) : irowslen;
+
+  SEXP ans = PROTECT(allocVector(TYPEOF(x), length(x)));
+  switch(TYPEOF(x)) {
+  case LGLSXP: case INTSXP: {
+    int *restrict ansp = INTEGER(ans);
+    const int *xd = INTEGER(x);
+    bool overflow = false;
+    //int *restrict grpsum = calloc(ngrp, sizeof(int));
+    if (narm) {
+      int ansi=0;
+      for (int i=0; i<ngrp; ++i) {
+        const int grpn = grpsize[i];
+        int gsum=0;
+        for (int j=0; j<grpn; ++j) {
+          const int k = issorted ? ff[i]+j-1 : oo[ff[i]+j-1]-1;
+          const int elem = nosubset ? xd[k] : (irows[k]==NA_INTEGER ? NA_INTEGER : xd[irows[k]-1]);
+          if (elem != NA_INTEGER) gsum += elem;
+          ansp[ansi++] = gsum;
+        }
+      }
+    } else {
+      int ansi=0;
+      for (int i=0; i<ngrp; ++i) {
+        const int grpn = grpsize[i];
+        int gsum=0;
+        for (int j=0; j<grpn; ++j) {
+          if (gsum != NA_INTEGER) {
+            const int k = issorted ? ff[i]+j-1 : oo[ff[i]+j-1]-1;
+            const int elem = nosubset ? xd[k] : (irows[k]==NA_INTEGER ? NA_INTEGER : xd[irows[k]-1]);
+            gsum = (elem == NA_INTEGER) ? NA_INTEGER : gsum+elem;
+          }
+          ansp[ansi++] = gsum;
+        }
+      }
+    }
+    //free(grpsum);
+  } break;
+  default:
+    error(_("Type '%s' not supported by GForce cumsum (gcumsum). Either add the prefix base::cumsum(.) or turn off GForce optimization using options(datatable.optimize=1)"), type2char(TYPEOF(x)));
+  }
+  UNPROTECT(1);
+  return ans;
+}
+

@@ -291,6 +291,7 @@ SEXP gsum(SEXP, SEXP);
 SEXP gmean(SEXP, SEXP);
 SEXP gmin(SEXP, SEXP);
 SEXP gmax(SEXP, SEXP);
+SEXP gcumsum(SEXP, SEXP);
 SEXP setNumericRounding(SEXP);
 SEXP getNumericRounding(void);
 SEXP binary(SEXP);
