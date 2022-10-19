@@ -1281,47 +1281,161 @@ SEXP gcumsum(SEXP x, SEXP narmArg) {
   const bool nosubset = irowslen == -1;
   const bool issorted = !isunsorted;
   const int n = nosubset ? length(x) : irowslen;
-
-  SEXP ans = PROTECT(allocVector(TYPEOF(x), length(x)));
+  int protecti=0;
+  SEXP ans;
+  COERCE:
+    ans = PROTECT(allocVector(TYPEOF(x), length(x))); protecti++;
+  bool overflow = false;
   switch(TYPEOF(x)) {
   case LGLSXP: case INTSXP: {
     int *restrict ansp = INTEGER(ans);
     const int *xd = INTEGER(x);
-    bool overflow = false;
-    //int *restrict grpsum = calloc(ngrp, sizeof(int));
     if (narm) {
       int ansi=0;
       for (int i=0; i<ngrp; ++i) {
         const int grpn = grpsize[i];
-        int gsum=0;
+        double sum=0.0;
         for (int j=0; j<grpn; ++j) {
           const int k = issorted ? ff[i]+j-1 : oo[ff[i]+j-1]-1;
           const int elem = nosubset ? xd[k] : (irows[k]==NA_INTEGER ? NA_INTEGER : xd[irows[k]-1]);
-          if (elem != NA_INTEGER) gsum += elem;
-          ansp[ansi++] = gsum;
+          if (elem != NA_INTEGER) {
+            sum += elem;
+            if (sum > INT_MAX || sum < 1 + INT_MIN) {
+              overflow = true;
+              break;
+            }
+          }
+          ansp[ansi++] = (int) sum;
         }
       }
     } else {
       int ansi=0;
       for (int i=0; i<ngrp; ++i) {
         const int grpn = grpsize[i];
-        int gsum=0;
+        double sum=0.0;
         for (int j=0; j<grpn; ++j) {
-          if (gsum != NA_INTEGER) {
+          if (sum != NA_INTEGER) {
             const int k = issorted ? ff[i]+j-1 : oo[ff[i]+j-1]-1;
             const int elem = nosubset ? xd[k] : (irows[k]==NA_INTEGER ? NA_INTEGER : xd[irows[k]-1]);
-            gsum = (elem == NA_INTEGER) ? NA_INTEGER : gsum+elem;
+            if (elem != NA_INTEGER) {
+              sum += elem;
+              if (sum > INT_MAX || sum < 1 + INT_MIN) {
+                overflow = true;
+                break;
+              }
+            } else sum = NA_INTEGER;
           }
-          ansp[ansi++] = gsum;
+          ansp[ansi++] = (int) sum;
         }
       }
     }
-    //free(grpsum);
+    if (overflow) {
+      warning(_("The sum of an integer column for a group was more than type 'integer' can hold so the result has been coerced to 'numeric' automatically for convenience."));
+      x = PROTECT(coerceVector(x, REALSXP)); protecti++;
+      goto COERCE;
+    }
+  } break;
+  case REALSXP: {
+    if (!INHERITS(x, char_integer64)) {
+      double *restrict ansp = REAL(ans);
+      const double *xd = REAL(x);
+      int ansi=0;
+      if (narm) {
+        for (int i=0; i<ngrp; ++i) {
+          const int grpn = grpsize[i];
+          double sum=0.0;
+          for (int j=0; j<grpn; ++j) {
+            const int k = issorted ? ff[i]+j-1 : oo[ff[i]+j-1]-1;
+            const double elem = nosubset ? xd[k] : (irows[k]==NA_INTEGER ? NA_REAL : xd[irows[k]-1]);
+            if (!ISNAN(elem)) sum += elem;
+            ansp[ansi++] = sum;
+          }
+        }
+      } else {
+        for (int i=0; i<ngrp; ++i) {
+          const int grpn = grpsize[i];
+          double sum=0.0;
+          for (int j=0; j<grpn; ++j) {
+            if (sum != NA_INTEGER) {
+              const int k = issorted ? ff[i]+j-1 : oo[ff[i]+j-1]-1;
+              const double elem = nosubset ? xd[k] : (irows[k]==NA_INTEGER ? NA_REAL : xd[irows[k]-1]);
+              if (!ISNAN(elem)) sum += elem;
+              else sum = NA_REAL;
+            }
+            ansp[ansi++] = sum;
+          }
+        }
+      }
+    } else {
+      int64_t *restrict ansp = (int64_t *)REAL(ans);
+      const int64_t *xd = (int64_t *)REAL(x);
+      int ansi=0;
+      if (narm) {
+        for (int i=0; i<ngrp; ++i) {
+          const int grpn = grpsize[i];
+          double sum=0.0;
+          for (int j=0; j<grpn; ++j) {
+            const int k = issorted ? ff[i]+j-1 : oo[ff[i]+j-1]-1;
+            const int64_t elem = nosubset ? xd[k] : (irows[k]==NA_INTEGER ? NA_INTEGER64 : xd[irows[k]-1]);
+            if (elem != NA_INTEGER64) sum += elem;
+            ansp[ansi++] = (int64_t) sum;
+          }
+        }
+      } else {
+        for (int i=0; i<ngrp; ++i) {
+          const int grpn = grpsize[i];
+          double sum=0.0;
+          for (int j=0; j<grpn; ++j) {
+            if (sum != NA_INTEGER) {
+              const int k = issorted ? ff[i]+j-1 : oo[ff[i]+j-1]-1;
+              const int64_t elem = nosubset ? xd[k] : (irows[k]==NA_INTEGER ? NA_INTEGER64 : xd[irows[k]-1]);
+              if (elem != NA_INTEGER64) sum += elem;
+              else sum = NA_INTEGER64;
+            }
+            ansp[ansi++] = (int64_t) sum;
+          }
+        }
+      }
+    }
+  } break;
+  case CPLXSXP: {
+    Rcomplex *restrict ansp = COMPLEX(ans);
+    const Rcomplex *xd = COMPLEX(x);
+    int ansi=0;
+    if (narm) {
+      for (int i=0; i<ngrp; ++i) {
+        const int grpn = grpsize[i];
+        Rcomplex sum;
+        sum.r = sum.i = 0;
+        for (int j=0; j<grpn; ++j) {
+          const int k = issorted ? ff[i]+j-1 : oo[ff[i]+j-1]-1;
+          const Rcomplex elem = nosubset ? xd[k] : (irows[k]==NA_INTEGER ? NA_CPLX : xd[irows[k]-1]);
+          if (!ISNAN(elem.r) || !ISNAN(elem.i)) { sum.r += elem.r; sum.i += elem.i; }
+          ansp[ansi++] = sum;
+        }
+      }
+    } else {
+      for (int i=0; i<ngrp; ++i) {
+        const int grpn = grpsize[i];
+        Rcomplex sum;
+        sum.r = sum.i = 0;
+        for (int j=0; j<grpn; ++j) {
+          if (!ISNAN(sum.r) || !ISNAN(sum.i)) {
+            const int k = issorted ? ff[i]+j-1 : oo[ff[i]+j-1]-1;
+            const Rcomplex elem = nosubset ? xd[k] : (irows[k]==NA_INTEGER ? NA_CPLX : xd[irows[k]-1]);
+            if (!ISNAN(elem.r) || !ISNAN(elem.i)) { sum.r += elem.r; sum.i += elem.i; }
+            else sum = NA_CPLX;
+          }
+          ansp[ansi++] = sum;
+        }
+      }
+    }
   } break;
   default:
     error(_("Type '%s' not supported by GForce cumsum (gcumsum). Either add the prefix base::cumsum(.) or turn off GForce optimization using options(datatable.optimize=1)"), type2char(TYPEOF(x)));
   }
-  UNPROTECT(1);
+  copyMostAttrib(x, ans);
+  UNPROTECT(protecti);
   return ans;
 }
 
