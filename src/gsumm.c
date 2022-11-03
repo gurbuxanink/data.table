@@ -1286,12 +1286,12 @@ SEXP gcumsum(SEXP x, SEXP narmArg) {
   COERCE:
     ans = PROTECT(allocVector(TYPEOF(x), length(x))); protecti++;
   bool overflow = false;
+  int ansi=0;
   switch(TYPEOF(x)) {
   case LGLSXP: case INTSXP: {
     int *restrict ansp = INTEGER(ans);
     const int *xd = INTEGER(x);
     if (narm) {
-      int ansi=0;
       for (int i=0; i<ngrp; ++i) {
         const int grpn = grpsize[i];
         double sum=0.0;
@@ -1309,7 +1309,6 @@ SEXP gcumsum(SEXP x, SEXP narmArg) {
         }
       }
     } else {
-      int ansi=0;
       for (int i=0; i<ngrp; ++i) {
         const int grpn = grpsize[i];
         double sum=0.0;
@@ -1331,7 +1330,7 @@ SEXP gcumsum(SEXP x, SEXP narmArg) {
     }
     if (overflow) {
       warning(_("The sum of an integer column for a group was more than type 'integer' can hold so the result has been coerced to 'numeric' automatically for convenience."));
-      x = PROTECT(coerceVector(x, REALSXP)); protecti++;
+      UNPROTECT(1); x = PROTECT(coerceVector(x, REALSXP)); // unprotect previous ans and protect x => protect counter stays
       goto COERCE;
     }
   } break;
@@ -1339,7 +1338,6 @@ SEXP gcumsum(SEXP x, SEXP narmArg) {
     if (!INHERITS(x, char_integer64)) {
       double *restrict ansp = REAL(ans);
       const double *xd = REAL(x);
-      int ansi=0;
       if (narm) {
         for (int i=0; i<ngrp; ++i) {
           const int grpn = grpsize[i];
@@ -1369,7 +1367,6 @@ SEXP gcumsum(SEXP x, SEXP narmArg) {
     } else {
       int64_t *restrict ansp = (int64_t *)REAL(ans);
       const int64_t *xd = (int64_t *)REAL(x);
-      int ansi=0;
       if (narm) {
         for (int i=0; i<ngrp; ++i) {
           const int grpn = grpsize[i];
@@ -1401,7 +1398,6 @@ SEXP gcumsum(SEXP x, SEXP narmArg) {
   case CPLXSXP: {
     Rcomplex *restrict ansp = COMPLEX(ans);
     const Rcomplex *xd = COMPLEX(x);
-    int ansi=0;
     if (narm) {
       for (int i=0; i<ngrp; ++i) {
         const int grpn = grpsize[i];
