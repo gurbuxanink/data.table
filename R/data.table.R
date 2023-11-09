@@ -1363,6 +1363,23 @@ replace_dot_alias = function(e) {
     if (is.name(jsub) && is.null(lhs) && !exists(jsubChar<-as.character(jsub), SDenv, inherits=FALSE)) {
       stopf("j (the 2nd argument inside [...]) is a single symbol but column name '%1$s' is not found. If you intended to select columns using a variable in calling scope, please try DT[, ..%1$s]. The .. prefix conveys one-level-up similar to a file system path.", jsubChar)
     }
+    # optimize mean to fastmean in nogrouping case #2799
+    if(getOption("datatable.optimize")>=1L && (is.call(jsub))) {
+      nomeanopt=FALSE
+      oldjsub = jsub
+      if (jsub[[1L]]=="mean") {
+        jsub = .optmean(jsub)
+        if (nomeanopt) {
+          warningf("Unable to optimize call to mean() and could be very slow. You must name 'na.rm' like that otherwise if you do mean(x,TRUE) the TRUE is taken to mean 'trim' which is the 2nd argument of mean. 'trim' is not yet optimized.", immediate.=TRUE)
+        }
+        if (verbose) {
+          if (!identical(oldjsub, jsub))
+            catf("Old mean optimization changed j from '%s' to '%s'\n", deparse(oldjsub), deparse(jsub, width.cutoff=200L, nlines=1L))
+          else
+            catf("Old mean optimization is on, left j unchanged.\n")
+        }
+      }
+    }
 
     jval = eval(jsub, SDenv, parent.frame())
     .Call(C_unlock, jval) # in case jval inherits .SD's lock, #1341 #2245. .Call directly (not via an R function like setattr or unlock) to avoid bumping jval's MAYBE_SHARED.

@@ -28,7 +28,7 @@ if we become out of line to base R (say if base R changed its mean).
 
 SEXP fastmean(SEXP args)
 {
-  long double s = 0., t = 0.;
+  long double s = 0., t = 0., si = 0.;
   R_len_t l = 0, n = 0;
   SEXP x, ans, tmp;
   Rboolean narm=FALSE;
@@ -36,33 +36,40 @@ SEXP fastmean(SEXP args)
   if (length(args)>2) {
     tmp = CADDR(args);
     if (!isLogical(tmp) || LENGTH(tmp)!=1 || LOGICAL(tmp)[0]==NA_LOGICAL)
-      error(_("narm should be TRUE or FALSE"));  // # nocov ; [.data.table should construct the .External call correctly
+      error(_("na.rm should be TRUE or FALSE"));  // # nocov ; [.data.table should construct the .External call correctly
     narm=LOGICAL(tmp)[0];
   }
-  PROTECT(ans = allocNAVector(REALSXP, 1));
-  copyMostAttrib(x, ans);
-  if (!isInteger(x) && !isReal(x) && !isLogical(x)) {
-    error(_("fastmean was passed type %s, not numeric or logical"), type2char(TYPEOF(x)));
+  switch(TYPEOF(x)) {
+    case LGLSXP: case INTSXP: case REALSXP: {
+      PROTECT(ans = allocNAVector(REALSXP, 1));
+    } break;
+    case CPLXSXP: {
+      PROTECT(ans = allocNAVector(CPLXSXP, 1));
+    } break;
+    default: 
+      error(_("fastmean was passed type %s, not numeric, logical or complex"), type2char(TYPEOF(x)));
   }
+  copyMostAttrib(x, ans);
   l = LENGTH(x);
   if (narm) {
     switch(TYPEOF(x)) {
-    case LGLSXP:
-    case INTSXP:
+    case LGLSXP: case INTSXP: {
+      const int *restrict xd = INTEGER(x);
       for (int i=0; i<l; ++i) {
-        if(INTEGER(x)[i] == NA_INTEGER) continue;
-        s += INTEGER(x)[i];   // no under/overflow here, s is long double not integer
+        if(xd[i] == NA_INTEGER) continue;
+        s += xd[i];   // no under/overflow here, s is long double not integer
         n++;
       }
       if (n>0)
         REAL(ans)[0] = (double) (s/n);
       else
         REAL(ans)[0] = R_NaN;  // consistent with base: mean(NA,na.rm=TRUE)==NaN==mean(numeric(),na.rm=TRUE)
-      break;
-    case REALSXP:
+    } break;
+    case REALSXP: {
+      const double *restrict xd = REAL(x);
       for (int i=0; i<l; ++i) {
-        if(ISNAN(REAL(x)[i])) continue;  // TO DO: could drop this line and let NA propogate?
-        s += REAL(x)[i];
+        if(ISNAN(xd[i])) continue;  // TO DO: could drop this line and let NA propogate?
+        s += xd[i];
         n++;
       }
       if (n==0) {
@@ -72,41 +79,72 @@ SEXP fastmean(SEXP args)
       s /= n;
       if(R_FINITE((double)s)) {
         for (int i=0; i<l; ++i) {
-          if(ISNAN(REAL(x)[i])) continue;
-          t += (REAL(x)[i] - s);
+          if(ISNAN(xd[i])) continue;
+          t += (xd[i] - s);
         }
         s += t/n;
       }
       REAL(ans)[0] = (double) s;
-      break;
+    } break;
+    case CPLXSXP: {
+      const Rcomplex *restrict xd = COMPLEX(x);
+      for (int i=0; i<l; ++i) {
+        if (ISNAN(xd[i].r) || ISNAN(xd[i].i)) continue;
+        s += xd[i].r;
+        si += xd[i].i;
+        n++;
+      }
+      if (n==0) {
+        COMPLEX(ans)[0].r = R_NaN;
+        COMPLEX(ans)[0].i = R_NaN;
+        break;
+      }
+      s /= n;
+      si /= n;
+      COMPLEX(ans)[0].r = (double) s;
+      COMPLEX(ans)[0].i = (double) si;
+    } break;
     default:
       error(_("Internal error: type '%s' not caught earlier in fastmean"), type2char(TYPEOF(x)));  // # nocov
     }
   } else {  // narm==FALSE
     switch(TYPEOF(x)) {
-    case LGLSXP:
-    case INTSXP:
+    case LGLSXP: case INTSXP: {
+      const int *restrict xd = INTEGER(x);
       for (int i=0; i<l; ++i) {
-        if(INTEGER(x)[i] == NA_INTEGER) {UNPROTECT(1); return(ans);}
-        s += INTEGER(x)[i];
+        if(xd[i] == NA_INTEGER) {UNPROTECT(1); return(ans);}
+        s += xd[i];
       }
       REAL(ans)[0] = (double) (s/l);
-      break;
-    case REALSXP:
+    } break;
+    case REALSXP: {
+      const double *restrict xd = REAL(x);
       for (int i=0; i<l; ++i) {
-        if(ISNAN(REAL(x)[i])) {UNPROTECT(1); return(ans);}
-        s += REAL(x)[i];
+        if(ISNAN(xd[i])) {UNPROTECT(1); return(ans);}
+        s += xd[i];
       }
       s /= l;
       if(R_FINITE((double)s)) {
         for (int i=0; i<l; ++i) {
           // no NA if got this far
-          t += (REAL(x)[i] - s);
+          t += (xd[i] - s);
         }
         s += t/LENGTH(x);
       }
       REAL(ans)[0] = (double) s;
-      break;
+    } break;
+    case CPLXSXP: {
+      const Rcomplex *restrict xd = COMPLEX(x);
+      for (int i=0; i<l; ++i) {
+        if(ISNAN(xd[i].r) || ISNAN(xd[i].i)) {UNPROTECT(1); return(ans);}
+        s += xd[i].r;
+        si += xd[i].i;
+      }
+      s /= l;
+      si /= l;
+      COMPLEX(ans)[0].r = (double) s;
+      COMPLEX(ans)[0].i = (double) si;
+    } break;
     default:
       error(_("Internal error: type '%s' not caught earlier in fastmean"), type2char(TYPEOF(x)));  // # nocov
     }
