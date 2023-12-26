@@ -289,7 +289,7 @@ SEXP assign(SEXP dt, SEXP rows, SEXP cols, SEXP newcolnames, SEXP values)
   // newcolnames : add these columns (if any)
   // cols : column names or numbers corresponding to the values to set
   // rows : row numbers to assign
-  R_len_t numToDo, targetlen, vlen, oldncol, oldtncol, coln, protecti=0, newcolnum, indexLength;
+  R_len_t numToDo, targetlen, vlen, oldncol, tl, coln, protecti=0, newcolnum, indexLength;
   SEXP targetcol, nullint, s, colnam, tmp, key, index, a, assignedNames, indexNames;
   bool verbose=GetVerbose();
   int ndelete=0;  // how many columns are being deleted
@@ -456,22 +456,22 @@ SEXP assign(SEXP dt, SEXP rows, SEXP cols, SEXP newcolnames, SEXP values)
   // modify DT by reference. Other than if new columns are being added and the allocVec() fails with
   // out-of-memory. In that case the user will receive hard halt and know to rerun.
   if (length(newcolnames)) {
-    oldtncol = TRUELENGTH(dt);   // TO DO: oldtncol can be just called tl now, as we won't realloc here any more.
+    tl = TRUELENGTH(dt);
 
-    if (oldtncol<oldncol) {
-      if (oldtncol==0) error(_("This data.table has either been loaded from disk (e.g. using readRDS()/load()) or constructed manually (e.g. using structure()). Please run setDT() or setalloccol() on it first (to pre-allocate space for new columns) before assigning by reference to it."));   // #2996
-      error(_("Internal error: oldtncol(%d) < oldncol(%d). Please report to data.table issue tracker, including result of sessionInfo()."), oldtncol, oldncol); // # nocov
+    if (tl<oldncol) {
+      if (tl==0) error(_("This data.table has either been loaded from disk (e.g. using readRDS()/load()) or constructed manually (e.g. using structure()). Please run setDT() or setalloccol() on it first (to pre-allocate space for new columns) before assigning by reference to it."));   // #2996
+      error(_("Internal error: tl(%d) < oldncol(%d). Please report to data.table issue tracker, including result of sessionInfo()."), tl, oldncol); // # nocov
     }
-    if (oldtncol>oldncol+10000L) warning(_("truelength (%d) is greater than 10,000 items over-allocated (length = %d). See ?truelength. If you didn't set the datatable.alloccol option very large, please report to data.table issue tracker including the result of sessionInfo()."),oldtncol, oldncol);
-    if (oldtncol < oldncol+LENGTH(newcolnames))
-      error(_("Internal error: DT passed to assign has not been allocated enough column slots. l=%d, tl=%d, adding %d"), oldncol, oldtncol, LENGTH(newcolnames));  // # nocov
+    if (tl>oldncol+10000L) warning(_("truelength (%d) is greater than 10,000 items over-allocated (length = %d). See ?truelength. If you didn't set the datatable.alloccol option very large, please report to data.table issue tracker including the result of sessionInfo()."),tl, oldncol);
+    if (tl < oldncol+LENGTH(newcolnames))
+      error(_("Internal error: DT passed to assign has not been allocated enough column slots. l=%d, tl=%d, adding %d"), oldncol, tl, LENGTH(newcolnames));  // # nocov
     if (!selfrefnamesok(dt,verbose))
       error(_("It appears that at some earlier point, names of this data.table have been reassigned. Please ensure to use setnames() rather than names<- or colnames<-. Otherwise, please report to data.table issue tracker."));  // # nocov
       // Can growVector at this point easily enough, but it shouldn't happen in first place so leave it as
       // strong error message for now.
-    else if (TRUELENGTH(names) != oldtncol)
+    else if (TRUELENGTH(names) != tl)
       // Use (long long) to cast R_xlen_t to a fixed type to robustly avoid -Wformat compiler warnings, see #5768, PRId64 didnt work
-      error(_("Internal error: selfrefnames is ok but tl names [%lld] != tl [%d]"), (long long)TRUELENGTH(names), oldtncol);  // # nocov
+      error(_("Internal error: selfrefnames is ok but tl names [%lld] != tl [%d]"), (long long)TRUELENGTH(names), tl);  // # nocov
     SETLENGTH(dt, oldncol+LENGTH(newcolnames));
     SETLENGTH(names, oldncol+LENGTH(newcolnames));
     for (int i=0; i<LENGTH(newcolnames); ++i)
@@ -1170,22 +1170,9 @@ void writeNA(SEXP v, const int from, const int n, const bool listNA)
   }
 }
 
-SEXP allocNAVector(SEXPTYPE type, R_len_t n)
-{
-  // an allocVector following with initialization to NA since a subassign to a new column using :=
-  // routinely leaves untouched items (rather than 0 or "" as allocVector does with its memset)
-  // We guess that author of allocVector would have liked to initialize with NA but was prevented since memset
-  // is restricted to one byte.
-  SEXP v = PROTECT(allocVector(type, n));
-  writeNA(v, 0, n, false);
-  UNPROTECT(1);
-  return(v);
-}
-
 SEXP allocNAVectorLike(SEXP x, R_len_t n) {
-  // writeNA needs the attribute retained to write NA_INTEGER64, #3723
-  // TODO: remove allocNAVector above when usage in fastmean.c, fcast.c and fmelt.c can be adjusted; see comments in PR3724
   SEXP v = PROTECT(allocVector(TYPEOF(x), n));
+  // writeNA needs the attribute retained to write NA_INTEGER64, #3723
   copyMostAttrib(x, v);
   writeNA(v, 0, n, false);
   UNPROTECT(1);

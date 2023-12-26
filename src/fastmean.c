@@ -39,7 +39,8 @@ SEXP fastmean(SEXP args)
       error(_("narm should be TRUE or FALSE"));  // # nocov ; [.data.table should construct the .External call correctly
     narm=LOGICAL(tmp)[0];
   }
-  PROTECT(ans = allocNAVector(REALSXP, 1));
+  PROTECT(ans = allocVector(REALSXP, 1));
+  REAL(ans)[0] = NA_REAL;
   copyMostAttrib(x, ans);
   if (!isInteger(x) && !isReal(x) && !isLogical(x)) {
     error(_("fastmean was passed type %s, not numeric or logical"), type2char(TYPEOF(x)));

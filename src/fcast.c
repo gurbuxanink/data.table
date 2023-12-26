@@ -22,7 +22,7 @@ SEXP fcast(SEXP lhs, SEXP val, SEXP nrowArg, SEXP ncolArg, SEXP idxArg, SEXP fil
     int nprotect = 0;
     if (isNull(fill)) {
       if (LOGICAL(is_agg)[0]) {
-        thisfill = PROTECT(allocNAVector(thistype, 1)); nprotect++;
+        thisfill = PROTECT(allocNAVectorLike(thiscol, 1)); nprotect++;
       } else thisfill = VECTOR_ELT(fill_d, i);
     }
     if (TYPEOF(thisfill) != thistype) {
