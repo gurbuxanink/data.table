@@ -431,92 +431,104 @@ SEXP frev(SEXP x, SEXP copyArg) {
     error(_("'x' should not be matrix or array"));
   if (!IS_TRUE_OR_FALSE(copyArg))
     error(_("%s must be TRUE or FALSE."), "copy"); // # nocov
+  SEXP ans;
   bool copy = LOGICAL(copyArg)[0];
   R_xlen_t n = xlength(x);
   int nprotect = 0;
   if (copy) {
-    x = PROTECT(duplicate(x));
+    ans = PROTECT(duplicate(x));
     nprotect++;
+  } else {
+    ans = x;
   }
   if (n==0) {
     UNPROTECT(nprotect);
-    return x;
+    return ans;
   }
-  switch (TYPEOF(x)) {
+  switch (TYPEOF(ans)) {
     case LGLSXP: case INTSXP: {
-      int *restrict xd = INTEGER(x);
+      int *restrict ansd = INTEGER(ans);
       #pragma omp parallel for num_threads(getDTthreads(n, true))
       for (uint64_t i=0; i<n/2; ++i) {
         const int k = n-1-i;
-        const int tmp = xd[i];
-        xd[i] = xd[k];
-        xd[k] = tmp;
+        const int tmp = ansd[i];
+        ansd[i] = ansd[k];
+        ansd[k] = tmp;
       }
     } break;
-    case REALSXP: if (INHERITS(x, char_integer64)) {
-      int64_t *xd = (int64_t *)REAL(x);
+    case REALSXP: if (INHERITS(ans, char_integer64)) {
+      int64_t *ansd = (int64_t *)REAL(ans);
       #pragma omp parallel for num_threads(getDTthreads(n, true))
       for (uint64_t i=0; i<n/2; ++i) {
         const int k = n-1-i;
-        const int64_t tmp = xd[i];
-        xd[i] = xd[k];
-        xd[k] = tmp;
+        const int64_t tmp = ansd[i];
+        ansd[i] = ansd[k];
+        ansd[k] = tmp;
       }
     } else {
-      double *xd = REAL(x);
+      double *ansd = REAL(ans);
       #pragma omp parallel for num_threads(getDTthreads(n, true))
       for (uint64_t i=0; i<n/2; ++i) {
         const int k = n-1-i;
-        const double tmp = xd[i];
-        xd[i] = xd[k];
-        xd[k] = tmp;
+        const double tmp = ansd[i];
+        ansd[i] = ansd[k];
+        ansd[k] = tmp;
       }
     } break;
     case STRSXP: {
-      const SEXP *xd = SEXPPTR_RO(x);
+      const SEXP *ansd = SEXPPTR_RO(ans);
       for (uint64_t i=0; i<n/2; ++i) {
         const int k = n-1-i;
-        const SEXP tmp = xd[i];
-        SET_STRING_ELT(x, i, xd[k]);
-        SET_STRING_ELT(x, k, tmp);
+        const SEXP tmp = ansd[i];
+        SET_STRING_ELT(ans, i, ansd[k]);
+        SET_STRING_ELT(ans, k, tmp);
       }
     } break;
     case VECSXP: {
-      const SEXP *xd = SEXPPTR_RO(x);
+      const SEXP *ansd = SEXPPTR_RO(ans);
       for (uint64_t i=0; i<n/2; ++i) {
         const int k = n-1-i;
-        const SEXP tmp = xd[i];
-        SET_VECTOR_ELT(x, i, xd[k]);
-        SET_VECTOR_ELT(x, k, tmp);
+        const SEXP tmp = ansd[i];
+        SET_VECTOR_ELT(ans, i, ansd[k]);
+        SET_VECTOR_ELT(ans, k, tmp);
       }
     } break;
     case CPLXSXP: {
-      Rcomplex *xd = COMPLEX(x);
+      Rcomplex *ansd = COMPLEX(ans);
       #pragma omp parallel for num_threads(getDTthreads(n, true))
       for (uint64_t i=0; i<n/2; ++i) {
         const int k = n-1-i;
-        const Rcomplex tmp = xd[i];
-        xd[i] = xd[k];
-        xd[k] = tmp;
+        const Rcomplex tmp = ansd[i];
+        ansd[i] = ansd[k];
+        ansd[k] = tmp;
       }
     } break;
     case RAWSXP: {
-      Rbyte *xd = RAW(x);
+      Rbyte *ansd = RAW(ans);
       #pragma omp parallel for num_threads(getDTthreads(n, true))
       for (uint64_t i=0; i<n/2; ++i) {
         const int k = n-1-i;
-        const Rbyte tmp = xd[i];
-        xd[i] = xd[k];
-        xd[k] = tmp;
+        const Rbyte tmp = ansd[i];
+        ansd[i] = ansd[k];
+        ansd[k] = tmp;
       }
     } break;
   default:
-    error(_("Type '%s' is not supported by frev"), type2char(TYPEOF(x)));
+    error(_("Type '%s' is not supported by frev"), type2char(TYPEOF(ans)));
   }
-  SEXP names = getAttrib(x, R_NamesSymbol);
-  if (!isNull(names)) {
-    frev(names, ScalarLogical(FALSE));
-  }
+  // strip attributes except names, class and levels
+  SEXP names, klass, levels;
+  names = PROTECT(getAttrib(x, R_NamesSymbol));
+  klass = PROTECT(getAttrib(x, R_ClassSymbol));
+  levels = PROTECT(getAttrib(x, R_LevelsSymbol));
+  nprotect += 3;
+  SET_ATTRIB(ans, R_NilValue);
+  if (!isNull(names))
+    setAttrib(ans, R_NamesSymbol, frev(names, copyArg));
+  if (!isNull(klass))
+    setAttrib(ans, R_ClassSymbol, klass);
+  if (!isNull(levels))
+    setAttrib(ans, R_LevelsSymbol, levels);
   UNPROTECT(nprotect);
-  return x;
+  return ans;
 }
