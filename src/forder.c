@@ -1263,7 +1263,7 @@ void radix_i(int from, int to, int radix) {
 
       if (retgrp) {
         #pragma omp parallel for ordered schedule(dynamic) num_threads(MIN(nth, ngrp))  // #5077
-        for (int i=0; i<ngrp; i++) { // reverse the loop since stack instead of recursion
+        for (int i=0; i<ngrp; i++) {
           int start = from + starts[ugrp[i]];
           pushState((State){start, start+my_gs[i]-1, radix+1});
           #pragma omp ordered
@@ -1272,7 +1272,7 @@ void radix_i(int from, int to, int radix) {
       } else {
         // flush() is only relevant when retgrp==true so save the redundant ordered clause
         #pragma omp parallel for schedule(dynamic) num_threads(MIN(nth, ngrp))  // #5077
-        for (int i=0; i<ngrp; i++) { // reverse the loop since stack instead of recursion
+        for (int i=0; i<ngrp; i++) {
           int start = from + starts[ugrp[i]];
           pushState((State){start, start+my_gs[i]-1, radix+1});
         }
