@@ -520,7 +520,6 @@ SEXP forder(SEXP DT, SEXP by, SEXP retGrpArg, SEXP sortGroupsArg, SEXP ascArg, S
       if (sortType!=1 && sortType!=-1)
         STOP(_("Item %d of order (ascending/descending) is %d. Must be +1 or -1."), col+1, sortType);
     }
-    //Rprintf(_("sortType = %d\n"), sortType);
     switch(TYPEOF(x)) {
     case INTSXP : case LGLSXP :  // TODO skip LGL and assume range [0,1]
       range_i32(INTEGER(x), nrow, &min, &max, &na_count);
@@ -828,7 +827,6 @@ static bool sort_ugrp(uint8_t *x, const int n)
 void radix_r(const int from, const int to, const int radix) {
   TBEG();
   const int my_n = to-from+1;
-  Rprintf("from:%d to:%d radix:%d\n", from, to, radix);
   if (my_n==1) {  // minor TODO: batch up the 1's instead in caller (and that's only needed when retgrp anyway)
     push(&my_n, 1);
     TEND(5);
@@ -851,7 +849,6 @@ void radix_r(const int from, const int to, const int radix) {
     // to use it once. However, o's type is uint8_t so many moves within this max-256 vector should be faster than many moves in osub (4 byte or 8 byte ints) [1 byte
     // type is always aligned]
     bool skip = true;
-    //Rprintf("sortType: %d\n", sortType);
     if (sortType!=0) {
       // always ascending as desc (sortType==-1) was dealt with in WRITE_KEY
       int start = 1;
@@ -937,8 +934,6 @@ void radix_r(const int from, const int to, const int radix) {
       else my_gs[ngrp]++;
     }
     ngrp++;
-    for(int i=0; i<ngrp; i++) Rprintf("my_gs[%d]: %d\n", i, my_gs[i]);
-    for(int i=0; i<my_n; i++) Rprintf("my_key[%d]: %d\n", i, my_key[i]);
     TEND(9)
     if (radix+1==nradix || ngrp==my_n) {  // ngrp==my_n => unique groups all size 1 and we can stop recursing now
       push(my_gs, ngrp);
@@ -1267,13 +1262,18 @@ void radix_r(const int from, const int to, const int radix) {
 }
 
 void pushState(State s) {
-  Rprintf("from:%d to:%d radix:%d\n", s.from, s.to, s.radix);
   if (rear == queuesize) {
     queuesize *= 2;
     queue = (State*)realloc(queue, queuesize * sizeof(State));
     if (!queue) STOP(_("Unable to reallocate queue of size=%d for iterative radix sort. Please report to data.table issue tracker."), queuesize);
   }
-  queue[rear++] = s;
+  int pos;
+  for (pos = rear-1; pos>=0; pos--) {
+    if (s.from < queue[pos].from) queue[pos+1] = queue[pos];
+    else break;
+  }
+  queue[pos+1] = s;
+  rear++;
 }
 
 State popState() {
@@ -1283,7 +1283,7 @@ State popState() {
 void radix_i(int from, int to, int radix) {
   TBEG();
   front = rear = 0;
-  queuesize = nradix;
+  queuesize = nradix > nrow ? nradix : nrow;
   queue = (State*)malloc(queuesize * sizeof(State));
   if (!queue) STOP(_("Unable to allocate queue of size=%d for iterative radix sort. Please report to data.table issue tracker."), queuesize);
 
@@ -1301,7 +1301,6 @@ void radix_i(int from, int to, int radix) {
   }
   else if (my_n<=256) {
     // if nth==1
-    //Rprintf(_("insert clause: radix=%d, my_n=%d, from=%d, to=%d\n"), radix, my_n, from, to);
     // insert sort with some twists:
     // i) detects if grouped; if sortType==0 can then skip
     // ii) keeps group appearance order at byte level to minimize movement
@@ -1316,7 +1315,6 @@ void radix_i(int from, int to, int radix) {
     // to use it once. However, o's type is uint8_t so many moves within this max-256 vector should be faster than many moves in osub (4 byte or 8 byte ints) [1 byte
     // type is always aligned]
     bool skip = true;
-    //Rprintf("sortType: %d\n", sortType);
     if (sortType!=0) {
       // always ascending as desc (sortType==-1) was dealt with in WRITE_KEY
       int start = 1;
@@ -1357,7 +1355,6 @@ void radix_i(int from, int to, int radix) {
           skip = false;
           break;
         }
-        //Rprintf("skip: %d\n", skip);
         if (!skip) {
           // and now it's worth populating o[]
           for (int i=0; i<third; i++) o[i] = i;
@@ -1403,8 +1400,6 @@ void radix_i(int from, int to, int radix) {
       else my_gs[ngrp]++;
     }
     ngrp++;
-    for(int i=0; i<ngrp; i++) Rprintf("my_gs[%d]: %d\n", i, my_gs[i]);
-    for(int i=0; i<my_n; i++) Rprintf("my_key[%d]: %d\n", i, my_key[i]);
     TEND(9)
     if (radix+1==nradix || ngrp==my_n) {  // ngrp==my_n => unique groups all size 1 and we can stop recursing now
       push(my_gs, ngrp);
@@ -1417,7 +1412,6 @@ void radix_i(int from, int to, int radix) {
     continue;
   }
   else if (my_n<=UINT16_MAX) {    // UINT16_MAX==65535 (important not 65536)
-    // if (nth==1) Rprintf(_("counting clause: radix=%d, my_n=%d\n"), radix, my_n);
     uint16_t my_counts[256] = {0};  // Needs to be all-0 on entry. This ={0} initialization should be fast as it's on stack. Otherwise, we have to manage
                                     // a stack of counts anyway since this is called recursively and these counts are needed to make the recursive calls.
                                     // This thread-private stack alloc has no chance of false sharing and gives omp and compiler best chance.
