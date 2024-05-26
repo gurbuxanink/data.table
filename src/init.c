@@ -83,6 +83,7 @@ R_CallMethodDef callMethods[] = {
 {"CsetNumericRounding", (DL_FUNC) &setNumericRounding, -1},
 {"CgetNumericRounding", (DL_FUNC) &getNumericRounding, -1},
 {"Cbinary", (DL_FUNC) &binary, -1},
+{"Cdecimal", (DL_FUNC) &decimal, -1},
 {"CsubsetDT", (DL_FUNC) &subsetDT, -1},
 {"CsubsetVector", (DL_FUNC) &subsetVector, -1},
 {"CconvertNegAndZeroIdx", (DL_FUNC) &convertNegAndZeroIdx, -1},

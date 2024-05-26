@@ -301,6 +301,7 @@ SEXP gmax(SEXP, SEXP);
 SEXP setNumericRounding(SEXP);
 SEXP getNumericRounding(void);
 SEXP binary(SEXP);
+SEXP decimal(SEXP);
 SEXP subsetDT(SEXP, SEXP, SEXP);
 SEXP convertNegAndZeroIdx(SEXP, SEXP, SEXP, SEXP);
 SEXP frank(SEXP, SEXP, SEXP, SEXP);

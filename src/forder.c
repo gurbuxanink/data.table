@@ -1420,3 +1420,26 @@ SEXP binary(SEXP x)
   return ans;
 }
 
+SEXP decimal(SEXP x)
+{
+  if (!isString(x)) error(_("x must be type 'character'"));
+  int n = LENGTH(x);
+  SEXP ans = PROTECT(allocVector(REALSXP, n));
+  double *ansd = REAL(ans);
+  for (int i=0; i<n; i++) {
+    const char *str = CHAR(STRING_ELT(x, i));
+    uint64_t i64 = 0;
+    for (int j=0; j<68; j++) {
+      if (str[j] == ' ') continue;
+      i64 <<= 1;
+      if (str[j] == '1') i64 |= 1;
+      else if (str[j] != '0') error(_("Found invalid binary representation while converting: %s to decimal"), str);
+    }
+    double result;
+    memcpy(&result, &i64, sizeof(double));
+    ansd[i] = result;
+  }
+  UNPROTECT(1);
+  return ans;
+}
+

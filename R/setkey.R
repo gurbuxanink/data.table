@@ -301,6 +301,7 @@ setorderv = function(x, cols = colnames(x), order=1L, na.last=FALSE)
 }
 
 binary = function(x) .Call(Cbinary, x)
+decimal = function(x) .Call(Cdecimal, x)
 
 setNumericRounding = function(x) invisible(.Call(CsetNumericRounding, as.integer(x)))
 getNumericRounding = function() .Call(CgetNumericRounding)
