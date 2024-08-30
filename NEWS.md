@@ -8,7 +8,7 @@
 
 ## BUG FIXES
 
-1. `fread()` automatically detects timestamps with microseconds again, [#6440](https://github.com/Rdatatable/data.table/issues/6440). This was a regression due to interference with new `dec='auto'` support. Thanks @kav2k for the concise report and @MichaelChirico for the fix.
+1. `fread()` automatically detects timestamps with sub-second accuracy again, [#6440](https://github.com/Rdatatable/data.table/issues/6440). This was a regression due to interference with new `dec='auto'` support. Thanks @kav2k for the concise report and @MichaelChirico for the fix.
 
 ## NOTES
 
